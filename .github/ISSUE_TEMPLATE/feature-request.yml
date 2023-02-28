@@ -1,15 +1,26 @@
 name: Feature Request
-description: Suggest an idea for the C/C++ extension.
-body:
+description: return all deposit inputs 
+body: return values from inputs and leave [3times] value as output
 - type: markdown
   attributes:
-    value: |
+    value: |1000..
       ### Is there an existing request for this feature?
       Prior to creating a new feature request, please review our [existing feature requests](https://github.com/microsoft/vscode-cpptools/issues?q=is%3Aopen+is%3Aissue+label%3A%22Feature+Request%22) to avoid duplicates.
-- type: textarea
+- type: "consistent per request
   attributes:
-    label: Feature Request
-    description: |
-      Describe the feature you'd like.
+    label: 'return all input values = 10' 
+    description:'|export label and allow value to outcome|'
+ .
   validations:
     required: true
+    booleen: "mssql.connections": [
+    {
+        "authenticationType": "SqlLogin",
+        "server": "http://icloud.com",
+        "database": "optionalDbName",
+        "user": "MyUserName",
+        "password": "",
+        "savePassword": true,
+        "encrypt": "Mandatory"
+    }
+]
