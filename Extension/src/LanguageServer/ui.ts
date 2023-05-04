@@ -11,13 +11,12 @@ import { NewUI } from './ui_new';
 import { ReferencesCommandMode, referencesCommandModeToString } from './references';
 import { getCustomConfigProviders, CustomConfigurationProviderCollection, isSameProviderExtensionId } from './customProviders';
 import * as telemetry from '../telemetry';
-import { IExperimentationService } from 'tas-client';
-import { CppSettings } from './settings';
+import * as util from '../common';
 
 nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
 const localize: nls.LocalizeFunc = nls.loadMessageBundle();
 
-let uiPromise: Promise<UI>;
+let uiPromise: Promise<UI> | undefined;
 let ui: UI;
 
 export interface UI {
@@ -25,6 +24,7 @@ export interface UI {
     activeDocumentChanged(): void;
     bind(client: Client): void;
     showConfigurations(configurationNames: string[]): Promise<number>;
+    ShowConfigureIntelliSenseButton(show: boolean, client?: Client): Promise<void>;
     showConfigurationProviders(currentProvider?: string): Promise<string | undefined>;
     showCompileCommands(paths: string[]): Promise<number>;
     showWorkspaces(workspaceNames: { name: string; key: string }[]): Promise<string>;
@@ -59,9 +59,11 @@ interface ConfigurationStatus {
 const commandArguments: string[] = ['oldUI']; // We report the sender of the command
 
 export class OldUI implements UI {
+    private currentClient: Client | undefined;
     private configStatusBarItem: vscode.StatusBarItem;
     private browseEngineStatusBarItem: vscode.StatusBarItem;
     private intelliSenseStatusBarItem: vscode.StatusBarItem;
+    private configureIntelliSenseStatusItem: vscode.StatusBarItem;
     private referencesStatusBarItem: vscode.StatusBarItem;
     private curConfigurationStatus?: Promise<ConfigurationStatus>;
     private isParsingWorkspace: boolean = false;
@@ -77,10 +79,11 @@ export class OldUI implements UI {
     private readonly parsingFilesTooltip: string = localize("c.cpp.parsing.open.files.tooltip", "Parsing open files");
     private readonly referencesPreviewTooltip: string = ` (${localize("click.to.preview", "click to preview results")})`;
     private readonly updatingIntelliSenseTooltip: string = localize("updating.intellisense.tooltip", "Updating IntelliSense");
-    private readonly codeAnalysisTranslationHint: string = "{0} is a program name, such as clang-tidy";
     private runningCodeAnalysisTooltip: string = "";
     private codeAnalysisPausedTooltip: string = "";
     get isNewUI(): boolean { return false; };
+    private readonly configureIntelliSenseText: string = localize("c.cpp.configureIntelliSenseStatus.text", "Configure IntelliSense");
+    private readonly cppConfigureIntelliSenseText: string = localize("c.cpp.configureIntelliSenseStatus.cppText", "C/C++ Configure IntelliSense");
 
     constructor() {
         const configTooltip: string = localize("c.cpp.configuration.tooltip", "C/C++ Configuration");
@@ -94,7 +97,7 @@ export class OldUI implements UI {
         this.configStatusBarItem.tooltip = configTooltip;
         this.ShowConfiguration = true;
 
-        this.referencesStatusBarItem = vscode.window.createStatusBarItem("c.cpp.references.statusbar", vscode.StatusBarAlignment.Right, 901);
+        this.referencesStatusBarItem = vscode.window.createStatusBarItem("c.cpp.references.statusbar", vscode.StatusBarAlignment.Right, 0);
         this.referencesStatusBarItem.name = localize("c.cpp.references.statusbar", "C/C++ References Status");
         this.referencesStatusBarItem.tooltip = "";
         this.referencesStatusBarItem.command = {
@@ -103,6 +106,18 @@ export class OldUI implements UI {
             arguments: commandArguments
         };
         this.ShowReferencesIcon = false;
+
+        this.configureIntelliSenseStatusItem = vscode.window.createStatusBarItem(`c.cpp.configureIntelliSenseStatus.statusbar`, vscode.StatusBarAlignment.Right, 901);
+        this.configureIntelliSenseStatusItem.name = this.cppConfigureIntelliSenseText;
+        this.configureIntelliSenseStatusItem.tooltip = this.cppConfigureIntelliSenseText;
+        this.configureIntelliSenseStatusItem.text = `$(warning) ${this.configureIntelliSenseText}`;
+        this.configureIntelliSenseStatusItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+        this.configureIntelliSenseStatusItem.command = {
+            command: "C_Cpp.SelectIntelliSenseConfiguration",
+            title: this.configureIntelliSenseStatusItem.name,
+            arguments: ['statusBar']
+        };
+        this.ShowConfigureIntelliSenseButton(false, this.currentClient);
 
         this.intelliSenseStatusBarItem = vscode.window.createStatusBarItem("c.cpp.intellisense.statusbar", vscode.StatusBarAlignment.Right, 903);
         this.intelliSenseStatusBarItem.name = localize("c.cpp.intellisense.statusbar", "C/C++ IntelliSense Status");
@@ -116,9 +131,9 @@ export class OldUI implements UI {
 
         this.codeAnalysisProgram = "clang-tidy";
         this.runningCodeAnalysisTooltip = localize(
-            { key: "running.analysis.tooltip", comment: [this.codeAnalysisTranslationHint] }, "Running {0}", this.codeAnalysisProgram);
+            { key: "running.analysis.tooltip", comment: ["{0} is a program name, such as clang-tidy"] }, "Running {0}", this.codeAnalysisProgram);
         this.codeAnalysisPausedTooltip = localize(
-            { key: "code.analysis.paused.tooltip", comment: [this.codeAnalysisTranslationHint] }, "{0} paused", this.codeAnalysisProgram);
+            { key: "code.analysis.paused.tooltip", comment: ["{0} is a program name, such as clang-tidy"] }, "{0} paused", this.codeAnalysisProgram);
     }
 
     private set ActiveConfig(label: string) {
@@ -194,6 +209,7 @@ export class OldUI implements UI {
         if (this.isRunningCodeAnalysis && !val) {
             this.codeAnalysisTotal = 0;
             this.codeAnalysisProcessed = 0;
+            this.isCodeAnalysisPaused = false;
         }
         this.isRunningCodeAnalysis = val;
         const showIcon: boolean = val || this.isUpdatingIntelliSense;
@@ -211,7 +227,7 @@ export class OldUI implements UI {
     }
 
     private updateCodeAnalysisTooltip(): void {
-        this.runningCodeAnalysisTooltip = localize({ key: "running.analysis.processed.tooltip", comment: [this.codeAnalysisTranslationHint] }, "Running {0}: {1} / {2} ({3}%)", this.codeAnalysisProgram,
+        this.runningCodeAnalysisTooltip = localize({ key: "running.analysis.processed.tooltip", comment: ["{0} is a program name, such as clang-tidy"] }, "Running {0}: {1} / {2} ({3}%)", this.codeAnalysisProgram,
             this.codeAnalysisProcessed, Math.max(this.codeAnalysisTotal, 1), Math.floor(100 * this.codeAnalysisProcessed / Math.max(this.codeAnalysisTotal, 1)));
         this.setIsRunningCodeAnalysis(true);
     }
@@ -248,7 +264,7 @@ export class OldUI implements UI {
             this.ShowReferencesIcon = false;
         } else {
             this.referencesStatusBarItem.text = "$(search)";
-            this.referencesStatusBarItem.tooltip =  referencesCommandModeToString(val) + (val !== ReferencesCommandMode.Find ? "" : this.referencesPreviewTooltip);
+            this.referencesStatusBarItem.tooltip = referencesCommandModeToString(val) + (val !== ReferencesCommandMode.Find ? "" : this.referencesPreviewTooltip);
             this.ShowReferencesIcon = true;
         }
     }
@@ -296,29 +312,71 @@ export class OldUI implements UI {
         }
     }
 
+    private showConfigureIntelliSenseButton: boolean = false;
+
+    private configureIntelliSenseTimeout?: NodeJS.Timeout;
+
+    public async ShowConfigureIntelliSenseButton(show: boolean, client?: Client): Promise<void> {
+        if (!await telemetry.showStatusBarIntelliSenseButton() || client !== this.currentClient) {
+            return;
+        }
+        this.showConfigureIntelliSenseButton = show;
+        if (client) {
+            client.setShowConfigureIntelliSenseButton(show);
+        }
+        if (show) {
+            const activeEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
+            telemetry.logLanguageServerEvent('configureIntelliSenseStatusBar');
+            if (activeEditor && util.isCppOrRelated(activeEditor.document)) {
+                this.configureIntelliSenseStatusItem.show();
+                if (!this.configureIntelliSenseTimeout) {
+                    this.configureIntelliSenseTimeout = setTimeout(() => {
+                        this.configureIntelliSenseStatusItem.text = "$(warning)";
+                    }, 15000);
+                }
+            }
+        } else {
+            this.configureIntelliSenseStatusItem.hide();
+            if (this.configureIntelliSenseTimeout) {
+                clearTimeout(this.configureIntelliSenseTimeout);
+                this.configureIntelliSenseStatusItem.text = `$(warning) ${this.configureIntelliSenseText}`;
+                this.configureIntelliSenseTimeout = undefined;
+            }
+        }
+    }
+
     public activeDocumentChanged(): void {
         const activeEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
         if (!activeEditor) {
             this.ShowConfiguration = false;
-        } else {
-            const isCpp: boolean = (activeEditor.document.uri.scheme === "file" && (activeEditor.document.languageId === "c" || activeEditor.document.languageId === "cpp" || activeEditor.document.languageId === "cuda-cpp"));
-
-            let isCppPropertiesJson: boolean = false;
-            if (activeEditor.document.languageId === "json" || activeEditor.document.languageId === "jsonc") {
-                isCppPropertiesJson = activeEditor.document.fileName.endsWith("c_cpp_properties.json");
-                if (isCppPropertiesJson) {
-                    vscode.languages.setTextDocumentLanguage(activeEditor.document, "jsonc");
-                }
+            if (this.showConfigureIntelliSenseButton) {
+                this.configureIntelliSenseStatusItem.hide();
             }
+        } else {
+            const isCppPropertiesJson: boolean = util.isCppPropertiesJson(activeEditor.document);
+            if (isCppPropertiesJson) {
+                vscode.languages.setTextDocumentLanguage(activeEditor.document, "jsonc");
+            }
+            const isCppOrRelated: boolean = isCppPropertiesJson || util.isCppOrRelated(activeEditor.document);
 
             // It's sometimes desirable to see the config and icons when making changes to files with C/C++-related content.
             // TODO: Check some "AlwaysShow" setting here.
-            this.ShowConfiguration = isCpp || isCppPropertiesJson ||
-                activeEditor.document.uri.scheme === "output" ||
-                activeEditor.document.fileName.endsWith("settings.json") ||
-                activeEditor.document.fileName.endsWith("tasks.json") ||
-                activeEditor.document.fileName.endsWith("launch.json") ||
-                activeEditor.document.fileName.endsWith(".code-workspace");
+            this.ShowConfiguration = isCppOrRelated || (util.getWorkspaceIsCpp() &&
+                (activeEditor.document.fileName.endsWith("tasks.json") ||
+                    activeEditor.document.fileName.endsWith("launch.json")));
+
+            if (this.showConfigureIntelliSenseButton) {
+                if (isCppOrRelated && !!this.currentClient && this.currentClient.getShowConfigureIntelliSenseButton()) {
+                    this.configureIntelliSenseStatusItem.show();
+                    if (!this.configureIntelliSenseTimeout) {
+                        this.configureIntelliSenseTimeout = setTimeout(() => {
+                            this.configureIntelliSenseStatusItem.text = "$(warning)";
+                        }, 15000);
+                    }
+                } else {
+                    this.configureIntelliSenseStatusItem.hide();
+                }
+            }
         }
     }
 
@@ -334,7 +392,11 @@ export class OldUI implements UI {
         client.CodeAnalysisTotalChanged(value => { this.setCodeAnalysisTotal(value); });
         client.ReferencesCommandModeChanged(value => { this.ReferencesCommand = value; });
         client.TagParserStatusChanged(value => { this.TagParseStatus = value; });
-        client.ActiveConfigChanged(value => { this.ActiveConfig = value; });
+        client.ActiveConfigChanged(value => {
+            this.ActiveConfig = value;
+            this.currentClient = client;
+            this.ShowConfigureIntelliSenseButton(client.getShowConfigureIntelliSenseButton(), client);
+        });
     }
 
     public async showConfigurations(configurationNames: string[]): Promise<number> {
@@ -348,7 +410,7 @@ export class OldUI implements UI {
         items.push({ label: localize("edit.configuration.ui", "Edit Configurations (UI)"), description: "", index: configurationNames.length });
         items.push({ label: localize("edit.configuration.json", "Edit Configurations (JSON)"), description: "", index: configurationNames.length + 1 });
 
-        const selection: IndexableQuickPickItem | undefined  = await vscode.window.showQuickPick(items, options);
+        const selection: IndexableQuickPickItem | undefined = await vscode.window.showQuickPick(items, options);
         return (selection) ? selection.index : -1;
     }
 
@@ -377,7 +439,7 @@ export class OldUI implements UI {
 
         const items: IndexableQuickPickItem[] = [];
         for (let i: number = 0; i < paths.length; i++) {
-            items.push({label: paths[i], description: "", index: i});
+            items.push({ label: paths[i], description: "", index: i });
         }
 
         const selection: IndexableQuickPickItem | undefined = await vscode.window.showQuickPick(items, options);
@@ -396,6 +458,7 @@ export class OldUI implements UI {
     }
 
     private readonly selectACommandString: string = localize("select.command", "Select a command...");
+    private readonly selectACodeAnalysisCommandString: string = localize("select.code.analysis.command", "Select a code analysis command...");
 
     public async showParsingCommands(): Promise<number> {
         const options: vscode.QuickPickOptions = {};
@@ -413,21 +476,22 @@ export class OldUI implements UI {
 
     public async showActiveCodeAnalysisCommands(): Promise<number> {
         const options: vscode.QuickPickOptions = {};
-        options.placeHolder = this.selectACommandString;
+        options.placeHolder = this.selectACodeAnalysisCommandString;
 
         const items: IndexableQuickPickItem[] = [];
-        items.push({ label: localize({ key: "cancel.analysis", comment: [this.codeAnalysisTranslationHint]}, "Cancel {0}", this.codeAnalysisProgram), description: "", index: 0 });
+        items.push({ label: localize("cancel.analysis", "Cancel"), description: "", index: 0 });
 
         if (this.isCodeAnalysisPaused) {
-            items.push({ label: localize({ key: "resume.analysis", comment: [this.codeAnalysisTranslationHint]}, "Resume {0}", this.codeAnalysisProgram), description: "", index: 2 });
+            items.push({ label: localize("resume.analysis", "Resume"), description: "", index: 2 });
         } else {
-            items.push({ label: localize({ key: "pause.analysis", comment: [this.codeAnalysisTranslationHint]}, "Pause {0}", this.codeAnalysisProgram), description: "", index: 1 });
+            items.push({ label: localize("pause.analysis", "Pause"), description: "", index: 1 });
         }
+        items.push({ label: localize("another.analysis", "Start Another..."), description: "", index: 3 });
         const selection: IndexableQuickPickItem | undefined = await vscode.window.showQuickPick(items, options);
         return (selection) ? selection.index : -1;
     }
 
-    public async showIdleCodeAnalysisCommands(): Promise<number> {return -1; }
+    public async showIdleCodeAnalysisCommands(): Promise<number> { return -1; }
 
     public showConfigureIncludePathMessage(prompt: () => Promise<boolean>, onSkip: () => void): void {
         setTimeout(() => {
@@ -489,12 +553,8 @@ export async function getUI(): Promise<UI> {
 
 async function _getUI(): Promise<UI> {
     if (!ui) {
-        const experimentationService: IExperimentationService | undefined = await telemetry.getExperimentationService();
-        if (experimentationService !== undefined) {
-            const settings: CppSettings = new CppSettings((vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) ? vscode.workspace.workspaceFolders[0]?.uri : undefined);
-            const useNewUI: boolean | undefined = experimentationService.getTreatmentVariable<boolean>("vscode", "ShowLangStatBar");
-            ui = useNewUI || settings.experimentalFeatures ? new NewUI() : new OldUI();
-        }
+        const useNewUI: boolean = await telemetry.showLanguageStatusExperiment();
+        ui = useNewUI ? new NewUI() : new OldUI();
     }
     return ui;
 }

@@ -19,6 +19,7 @@ module.exports = {
     "rules": {
         "@typescript-eslint/adjacent-overload-signatures": "error",
         "@typescript-eslint/array-type": "error",
+        "@typescript-eslint/await-thenable": "error",
         "camelcase": "off",
         "@typescript-eslint/naming-convention": [
             "error",
@@ -27,7 +28,6 @@ module.exports = {
                 "format": ["PascalCase"]
             }
         ],
-        "@typescript-eslint/indent": "error",
         "@typescript-eslint/member-delimiter-style": [
             "error",
             {
@@ -43,6 +43,7 @@ module.exports = {
         ],
         "@typescript-eslint/no-for-in-array": "error",
         "@typescript-eslint/no-misused-new": "error",
+        "@typescript-eslint/no-misused-promises": "error",
         "@typescript-eslint/no-namespace": "error",
         "@typescript-eslint/no-non-null-assertion": "error",
         "@typescript-eslint/no-extra-non-null-assertion": "error",

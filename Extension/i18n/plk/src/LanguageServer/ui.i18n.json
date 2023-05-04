@@ -7,6 +7,8 @@
 	"c.cpp.parsing.open.files.tooltip": "Analizowanie otwartych plików",
 	"click.to.preview": "kliknij, aby wyświetlić podgląd wyników",
 	"updating.intellisense.tooltip": "Aktualizowanie funkcji IntelliSense",
+	"c.cpp.configureIntelliSenseStatus.text": "Konfigurowanie funkcji IntelliSense",
+	"c.cpp.configureIntelliSenseStatus.cppText": "Konfigurowanie funkcji IntelliSense (C/C++)",
 	"select.command": "Wybierz polecenie...",
 	"c.cpp.configuration.tooltip": "Konfiguracja języka C/C++",
 	"c.cpp.references.statusbar": "Stan odwołań języka C/C++",

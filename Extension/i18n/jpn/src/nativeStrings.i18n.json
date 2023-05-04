@@ -167,7 +167,8 @@
 	"overloads": "+%d 個のオーバーロード",
 	"specialization": "+1 個の特殊化",
 	"specializations": "+%d 個の特殊化",
-	"compiler": "注意: IntelliSense は完全には構成されていません。構成を完了するには、[Select Default Compiler] (既定のコンパイラの選択) コマンドを使用します。",
+	"intellisense_configuration": "注: IntelliSense は完全には構成されていません。構成を完了するには、'IntelliSense 構成の選択...' コマンドを使用します。",
+	"select_intellisense_configuration": "IntelliSense 構成を選択してシステム ヘッダーを検索する",
 	"expands_to": "展開先:",
 	"attention_label": "注意:",
 	"author_label": "作成者:",
@@ -292,5 +293,6 @@
 	"refactor_file_not_in_project": "ファイル '%s' が見つかりませんでした。",
 	"refactor_not_class_namespace": "クラスまたは名前空間 '%s' が見つかりませんでした。",
 	"refactor_operation_unsupported": "この操作は '%s' でサポートされていません。",
-	"unknown_error": "不明なエラーです。"
+	"unknown_error": "不明なエラーです。",
+	"run_select_intellisense_configuration": "システム ヘッダーを見つけるには、'IntelliSense 構成の選択...' コマンドを実行してください。"
 }

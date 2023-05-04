@@ -7,6 +7,8 @@
 	"c.cpp.parsing.open.files.tooltip": "Açık dosyalar ayrıştırılıyor",
 	"click.to.preview": "sonuçların önizlemesini görüntülemek için tıklayın",
 	"updating.intellisense.tooltip": "IntelliSense güncelleştiriliyor",
+	"c.cpp.configureIntelliSenseStatus.text": "IntelliSense'i Yapılandır",
+	"c.cpp.configureIntelliSenseStatus.cppText": "C/C++ IntelliSense'i Yapılandır",
 	"select.command": "Komut seç...",
 	"c.cpp.configuration.tooltip": "C/C++ Yapılandırması",
 	"c.cpp.references.statusbar": "C/C++ Başvuruları Durumu",

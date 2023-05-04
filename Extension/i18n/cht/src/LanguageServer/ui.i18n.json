@@ -7,6 +7,8 @@
 	"c.cpp.parsing.open.files.tooltip": "正在剖析開啟的檔案",
 	"click.to.preview": "按一下以預覽結果",
 	"updating.intellisense.tooltip": "正在更新 IntelliSense...",
+	"c.cpp.configureIntelliSenseStatus.text": "設定 IntelliSense",
+	"c.cpp.configureIntelliSenseStatus.cppText": "C/C++ 設定 IntelliSense",
 	"select.command": "選取命令...",
 	"c.cpp.configuration.tooltip": "C/C++ 組態",
 	"c.cpp.references.statusbar": "C/C++ 參考狀態",

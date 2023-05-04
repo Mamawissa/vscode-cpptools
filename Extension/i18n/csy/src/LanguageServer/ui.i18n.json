@@ -7,6 +7,8 @@
 	"c.cpp.parsing.open.files.tooltip": "Analýza otevřených souborů.",
 	"click.to.preview": "kliknutím si můžete zobrazit náhled výsledků",
 	"updating.intellisense.tooltip": "Aktualizuje se IntelliSense.",
+	"c.cpp.configureIntelliSenseStatus.text": "Konfigurovat IntelliSense",
+	"c.cpp.configureIntelliSenseStatus.cppText": "Konfigurovat IntelliSense v C/C++",
 	"select.command": "Vyberte příkaz…",
 	"c.cpp.configuration.tooltip": "Konfigurace C/C++",
 	"c.cpp.references.statusbar": "Stav odkazů jazyka C/C++",

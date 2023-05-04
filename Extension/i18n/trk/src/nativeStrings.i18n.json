@@ -167,7 +167,8 @@
 	"overloads": "%d aşırı yükleme daha",
 	"specialization": "1 özelleştirme daha",
 	"specializations": "%d özelleştirme daha",
-	"compiler": "Not: IntelliSense tam olarak yapılandırılmadı. Yapılandırmayı bitirmek için 'Varsayılan Derleyiciyi Seç' komutunu kullanın.",
+	"intellisense_configuration": "Not: IntelliSense tam olarak yapılandırılmadı. Yapılandırmayı bitirmek için 'IntelliSense Yapılandırmasını Seç' komutunu kullanın.",
+	"select_intellisense_configuration": "Sistem üst bilgilerini bulmak için bir IntelliSense yapılandırması seçin",
 	"expands_to": "Şu öğeye genişler:",
 	"attention_label": "Dikkat:",
 	"author_label": "Yazar:",
@@ -292,5 +293,6 @@
 	"refactor_file_not_in_project": "'%s' dosyası bulunamadı.",
 	"refactor_not_class_namespace": "Sınıf veya ad alanı '%s' bulunamadı.",
 	"refactor_operation_unsupported": "İşlem '%s' için desteklenmiyor.",
-	"unknown_error": "Bilinmeyen hata."
+	"unknown_error": "Bilinmeyen hata.",
+	"run_select_intellisense_configuration": "Lütfen sistem başlıklarınızı bulmak için 'IntelliSense Yapılandırmasını Seç...' komutunu çalıştırın."
 }

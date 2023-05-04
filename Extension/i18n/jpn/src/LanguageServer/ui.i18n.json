@@ -7,6 +7,8 @@
 	"c.cpp.parsing.open.files.tooltip": "開いているファイルを解析しています",
 	"click.to.preview": "クリックして結果をプレビューします",
 	"updating.intellisense.tooltip": "IntelliSense を更新しています...",
+	"c.cpp.configureIntelliSenseStatus.text": "IntelliSense の構成",
+	"c.cpp.configureIntelliSenseStatus.cppText": "C/C++ IntelliSense の構成",
 	"select.command": "コマンドを選択する...",
 	"c.cpp.configuration.tooltip": "C/C++ 構成",
 	"c.cpp.references.statusbar": "C/C + + リファレンスの状態",

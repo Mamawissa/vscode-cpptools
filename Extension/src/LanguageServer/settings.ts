@@ -13,10 +13,11 @@ import { execSync } from 'child_process';
 import * as semver from 'semver';
 import * as fs from 'fs';
 import * as path from 'path';
-import { cachedEditorConfigLookups, cachedEditorConfigSettings } from './client';
+import { cachedEditorConfigLookups, cachedEditorConfigSettings, hasTrustedCompilerPaths, DefaultClient } from './client';
 import * as editorConfig from 'editorconfig';
 import { PersistentState } from './persistentState';
 import * as nls from 'vscode-nls';
+import { clients } from './extension';
 
 nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
 const localize: nls.LocalizeFunc = nls.loadMessageBundle();
@@ -379,6 +380,26 @@ export class CppSettings extends Settings {
     public get defaultForcedInclude(): string[] | undefined { return super.getWithUndefinedDefault<string[]>("default.forcedInclude"); }
     public get defaultIntelliSenseMode(): string | undefined { return super.Section.get<string>("default.intelliSenseMode"); }
     public get defaultCompilerPath(): string | undefined { return super.Section.get<string | null>("default.compilerPath") ?? undefined; }
+    public set defaultCompilerPath(value: string | undefined) {
+        const defaultCompilerPathStr: string = "default.compilerPath";
+        const compilerPathInfo: any = this.Section.inspect(defaultCompilerPathStr);
+        let target: vscode.ConfigurationTarget = vscode.ConfigurationTarget.Global;
+        if (this.resource !== undefined || compilerPathInfo.workspaceFolderValue !== undefined) {
+            target = vscode.ConfigurationTarget.WorkspaceFolder;
+        } else if (compilerPathInfo.workspaceValue !== undefined) {
+            target = vscode.ConfigurationTarget.Workspace;
+        }
+        this.Section.update(defaultCompilerPathStr, value, target);
+        if (this.resource !== undefined && !hasTrustedCompilerPaths()) {
+            // Also set the user/remote compiler path if no other path has been trusted yet.
+            this.Section.update(defaultCompilerPathStr, value, vscode.ConfigurationTarget.Global);
+            clients.forEach(client => {
+                if (client instanceof DefaultClient) {
+                    client.setShowConfigureIntelliSenseButton(false);
+                }
+            });
+        }
+    }
     public get defaultCompilerArgs(): string[] | undefined { return super.getWithUndefinedDefault<string[]>("default.compilerArgs"); }
     public get defaultCStandard(): string | undefined { return super.Section.get<string>("default.cStandard"); }
     public get defaultCppStandard(): string | undefined { return super.Section.get<string>("default.cppStandard"); }
@@ -963,9 +984,6 @@ export class OtherSettings {
     public get filesAssociations(): any { return vscode.workspace.getConfiguration("files").get("associations"); }
     public set filesAssociations(value: any) {
         vscode.workspace.getConfiguration("files").update("associations", value, vscode.ConfigurationTarget.Workspace);
-    }
-    public set defaultCompiler(value: string) {
-        vscode.workspace.getConfiguration("C_Cpp.default").update("compilerPath", value, vscode.ConfigurationTarget.Global);
     }
     public get filesExclude(): vscode.WorkspaceConfiguration | undefined { return vscode.workspace.getConfiguration("files", this.resource).get("exclude"); }
     public get filesAutoSaveAfterDelay(): boolean { return vscode.workspace.getConfiguration("files").get("autoSave") === "afterDelay"; }
